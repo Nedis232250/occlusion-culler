@@ -1,0 +1,30 @@
+When tested with the following system:
+
+HP Victus 16 R0037CL
+Max fans
+Hybrid Graphics
+Intel I7-13700HX (with Intel UHD 770 Graphics)
+NVIDIA GeForce RTX 4060 Laptop GPU (120 watt power limit, connected through a PCIe 4.0x8 interface)
+32GB (2x16gb) ddr5-4800 CL40 SODIMM
+
+And following render test:
+
+2,000,000 triangles
+Approximately 11664 pixels per triangle
+No textures, just colors
+All opaque
+Tested at FHD 16:9 1080p (1920x1080)
+
+On the integrated graphics (Intel UHD 770):
+
+The performance is around 47-49 FPS with the occlusion culling.
+The performance slows to a crawl without occlusion culling and is around 14-15 FPS.
+
+On the dedicated graphics (NVIDIA GeForce RTX 4060 Laptop GPU, 120 watt power limit, PCIe 4.0x8 interface):
+
+The performance with occlusion culling is around 400-5000 FPS.
+The performance is around 275-400 FPS without occlusion culling.
+
+The process I used:
+
+Instead of using 4 buffers of previously culled images, temporal data or bounding box checking, I instead made 2 sets of vertices: One with the normal positions, colors and values of each triangle, and the other with the normal positions, but having the colors act as the triangle's ID. Then I rendered the final framebuffer at 1:4 resolution, 270p (480x270), and whichever triangles didn't appear on the 1:4 mip would be culled.
