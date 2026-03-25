@@ -26,8 +26,8 @@ HRESULT hr;
 int hr_code = 0;
 unsigned int vertex_count = 3;
 
-std::vector<unsigned int> screen(width * height); // tightly packed BGRA
-std::vector<unsigned int> screen2(occluder_width * occluder_height); // tightly packed BGRA
+std::vector<unsigned int> screen(width* height); // tightly packed BGRA
+std::vector<unsigned int> screen2(occluder_width* occluder_height); // tightly packed BGRA
 void* data_gpu_copy;
 
 using namespace Microsoft::WRL;
@@ -45,17 +45,17 @@ void attach_console() {
 
 LRESULT w_proc(HWND wnd, UINT msg, WPARAM wparam, LPARAM lparam) {
 	switch (msg) {
-		case WM_QUIT: {
-			running = false;
-			PostQuitMessage(0);
-			break;
-		} case WM_DESTROY: {
-			running = false;
-			PostQuitMessage(0);
-			break;
-		} default: {
-			return DefWindowProc(wnd, msg, wparam, lparam);
-		}
+	case WM_QUIT: {
+		running = false;
+		PostQuitMessage(0);
+		break;
+	} case WM_DESTROY: {
+		running = false;
+		PostQuitMessage(0);
+		break;
+	} default: {
+		return DefWindowProc(wnd, msg, wparam, lparam);
+	}
 	}
 }
 
@@ -276,7 +276,7 @@ int WinMain(HINSTANCE h_instance, HINSTANCE p_instance, LPSTR cmdln, int n_cmd_s
 	}
 	hr_code++;
 
-	ID3D11ShaderResourceView* SRVs[] = {vertices_SRV.Get()};
+	ID3D11ShaderResourceView* SRVs[] = { vertices_SRV.Get() };
 
 	ComPtr<ID3D11RenderTargetView> RTV;
 	D3D11_RENDER_TARGET_VIEW_DESC RTV_desc = {};
@@ -358,7 +358,7 @@ int WinMain(HINSTANCE h_instance, HINSTANCE p_instance, LPSTR cmdln, int n_cmd_s
 	triangle_visibility_buf_desc.CPUAccessFlags = 0;
 	triangle_visibility_buf_desc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_ALLOW_RAW_VIEWS;
 	triangle_visibility_buf_desc.StructureByteStride = 0;
-	
+
 	hr = device->CreateBuffer(&triangle_visibility_buf_desc, nullptr, &triangle_visibility_buf);
 	if (FAILED(hr)) {
 		return hr_code;
@@ -447,9 +447,45 @@ int WinMain(HINSTANCE h_instance, HINSTANCE p_instance, LPSTR cmdln, int n_cmd_s
 	vertices_SRV_desc.Buffer.NumElements = vertices.size();
 
 	hr = device->CreateShaderResourceView(color_buffer.Get(), &color_SRV_desc, &color_SRV);
+	if (FAILED(hr)) {
+		return hr_code;
+	}
+	hr_code++;
+
+	std::vector<unsigned int> culling_avoidance = set_occlusion_viability(vertices, width, height, -45.0f);
+	ComPtr<ID3D11Buffer> cull_buffer;
+	D3D11_BUFFER_DESC cull_buffer_desc = {};
+	cull_buffer_desc.ByteWidth = sizeof(unsigned int) * culling_avoidance.size();
+	cull_buffer_desc.Usage = D3D11_USAGE_DEFAULT;
+	cull_buffer_desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+	cull_buffer_desc.CPUAccessFlags = 0;
+	cull_buffer_desc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+	cull_buffer_desc.StructureByteStride = sizeof(unsigned int);
+	
+	D3D11_SUBRESOURCE_DATA cull_buffer_data = {};
+	cull_buffer_data.pSysMem = culling_avoidance.data();
+
+	hr = device->CreateBuffer(&cull_buffer_desc, &cull_buffer_data, &cull_buffer);
+	if (FAILED(hr)) {
+		return hr_code;
+	}
+	hr_code++;
+
+	ComPtr<ID3D11ShaderResourceView> cull_SRV;
+	D3D11_SHADER_RESOURCE_VIEW_DESC cull_SRV_desc = {};
+	cull_SRV_desc.Format = DXGI_FORMAT_UNKNOWN;
+	cull_SRV_desc.Buffer.NumElements = culling_avoidance.size();
+	cull_SRV_desc.Buffer.FirstElement = 0;
+	cull_SRV_desc.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
+
+	hr = device->CreateShaderResourceView(cull_buffer.Get(), &cull_SRV_desc, &cull_SRV);
+	if (FAILED(hr)) {
+		return hr;
+	}
+	hr_code++;
 
 	ID3D11UnorderedAccessView* UAVs[] = { triangle_visibility_UAV.Get() };
-	ID3D11ShaderResourceView* FINAL_SRVs[] = { color_SRV.Get(), triangle_visibility_SRV.Get() };
+	ID3D11ShaderResourceView* FINAL_SRVs[] = { color_SRV.Get(), triangle_visibility_SRV.Get(), cull_SRV.Get() };
 
 	MSG msg = {};
 	while (running) {
@@ -459,7 +495,7 @@ int WinMain(HINSTANCE h_instance, HINSTANCE p_instance, LPSTR cmdln, int n_cmd_s
 		}
 
 		auto start = std::chrono::high_resolution_clock::now();
-		
+
 		ctx->ClearUnorderedAccessViewUint(triangle_visibility_UAV.Get(), clear_val_uint);
 		ctx->VSSetShader(vs.Get(), nullptr, 0);
 		ctx->VSSetShaderResources(0, 1, SRVs);
@@ -474,7 +510,7 @@ int WinMain(HINSTANCE h_instance, HINSTANCE p_instance, LPSTR cmdln, int n_cmd_s
 		ctx->End(frame_query.Get());
 		ctx->OMSetRenderTargetsAndUnorderedAccessViews(0, nullptr, nullptr, 1, 1, null_uav, nullptr);
 		ctx->VSSetShader(vs_final.Get(), nullptr, 0);
-		ctx->VSSetShaderResources(0, 2, FINAL_SRVs);
+		ctx->VSSetShaderResources(0, 3, FINAL_SRVs);
 		ctx->PSSetShader(ps_final.Get(), nullptr, 0);
 		ctx->OMSetRenderTargets(1, RTV.GetAddressOf(), DSV.Get());
 		ctx->ClearRenderTargetView(RTV.Get(), clear_color);
