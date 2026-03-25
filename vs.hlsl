@@ -5,7 +5,7 @@ struct VSOutput {
     float4 color : COLOR0;
 };
 
-#define rx 0.0h
+#define rx radians(0.0h)
 #define ry 0.0h
 
 VSOutput main(uint vertexID : SV_VertexID) {
