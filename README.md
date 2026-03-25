@@ -32,7 +32,11 @@ The process I used:
 
 Instead of using 4 buffers of previously culled images, temporal data or bounding box checking, I instead made 2 sets of vertices: One with the normal positions, colors and values of each triangle, and the other with the normal positions, but having the colors act as the triangle's ID. Then I rendered the final framebuffer at 1:4 resolution, 270p (480x270), and whichever triangles didn't appear on the 1:4 mip would be culled.
 
-Version 2 (3/24/26):
+Version 1.1 (3/24/26):
+
+BUG FIXES:
+
+- Fixed small triangles being incorrectly culled
 
 Added a cull buffer. I noticed small triangles were not being rendered because they didn't appear in the 270p mip (because they were subpixel after being scaled down) leading to them being culled, when they should have been fully visible in the final 1080p image output. I added a cull buffer with a CPU loop to tell the vertex shader to not cull subpixel triangles in the mip.
 
