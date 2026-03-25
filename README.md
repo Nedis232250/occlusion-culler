@@ -21,7 +21,7 @@ Tested at FHD 16:9 1080p (1920x1080)
 On the integrated graphics (Intel UHD 770):
 
 The performance is around 39-40 FPS with the occlusion culling.
-The performance slows to a crawl without occlusion culling and is around 14-15 FPS.
+The performance slows to a crawl without occlusion culling and is around 10-11 FPS.
 
 On the dedicated graphics (NVIDIA GeForce RTX 4060 Laptop GPU, 120 watt power limit, PCIe 4.0x8 interface):
 
