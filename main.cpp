@@ -9,12 +9,10 @@
 #include "utils.hpp"
 #include <unordered_map>
 #include <fstream>
-#include "fastnoiselite.h"
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "dxgi.lib")
 #pragma comment(lib, "d3dcompiler.lib")
 #pragma comment(linker, "/SUBSYSTEM:WINDOWS")
-#pragma comment(linker, "/STACK:67108864")  // 64MB stack
 
 bool running = true;
 unsigned int width = 1920;
