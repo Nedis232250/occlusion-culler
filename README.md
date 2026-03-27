@@ -41,3 +41,7 @@ BUG FIXES:
 Added a cull buffer. I noticed small triangles were not being rendered because they didn't appear in the 270p mip (because they were subpixel after being scaled down) leading to them being culled, when they should have been fully visible in the final 1080p image output. I added a cull buffer with a CPU loop to tell the vertex shader to not cull subpixel triangles in the mip.
 
 So, this is a "large triangle" occlusion culler (8x8px triangles or bigger), if further tests show stability with smaller triangles, I will push the update. For small triangles, a different occlusion culler is needed (I might add later).
+
+Version 1.2 (3/27/2026):
+
+Removed excess libraries and left stack allocation up to Windows.
