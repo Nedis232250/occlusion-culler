@@ -395,11 +395,6 @@ int WinMain(HINSTANCE h_instance, HINSTANCE p_instance, LPSTR cmdln, int n_cmd_s
 	UINT clear_val_uint[4] = { 0, 0, 0, 0 };
 	ID3D11UnorderedAccessView* null_uav[] = { nullptr };
 
-	ComPtr<ID3D11Query> frame_query;
-	D3D11_QUERY_DESC query_desc = {};
-	query_desc.Query = D3D11_QUERY_EVENT;
-	device->CreateQuery(&query_desc, &frame_query);
-
 	ComPtr<IDXGISwapChain> swapchain;
 	ComPtr<IDXGIDevice> dxgi_device;
 	ComPtr<IDXGIAdapter> adapter;
@@ -505,7 +500,6 @@ int WinMain(HINSTANCE h_instance, HINSTANCE p_instance, LPSTR cmdln, int n_cmd_s
 		ctx->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		ctx->RSSetState(rs.Get());
 		ctx->Draw(vertices.size() / 7, 0);
-		ctx->End(frame_query.Get());
 		ctx->OMSetRenderTargetsAndUnorderedAccessViews(0, nullptr, nullptr, 1, 1, null_uav, nullptr);
 		ctx->VSSetShader(vs_final.Get(), nullptr, 0);
 		ctx->VSSetShaderResources(0, 3, FINAL_SRVs);
