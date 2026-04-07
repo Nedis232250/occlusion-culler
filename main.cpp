@@ -9,10 +9,14 @@
 #include "utils.hpp"
 #include <unordered_map>
 #include <fstream>
+#include "fastnoiselite.h"
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "dxgi.lib")
 #pragma comment(lib, "d3dcompiler.lib")
 #pragma comment(linker, "/SUBSYSTEM:WINDOWS")
+
+#define rx 0.0f
+#define ry 0.0f
 
 bool running = true;
 unsigned int width = 1920;
@@ -58,8 +62,7 @@ LRESULT w_proc(HWND wnd, UINT msg, WPARAM wparam, LPARAM lparam) {
 }
 
 int WinMain(HINSTANCE h_instance, HINSTANCE p_instance, LPSTR cmdln, int n_cmd_show) {
-	SetProcessDPIAware();
-	attach_console();
+	//SetProcessDPIAware();
 	WNDCLASS w_class = {};
 	w_class.lpfnWndProc = w_proc;
 	w_class.lpszClassName = L"class";
@@ -68,13 +71,16 @@ int WinMain(HINSTANCE h_instance, HINSTANCE p_instance, LPSTR cmdln, int n_cmd_s
 
 	RegisterClassW(&w_class);
 
+	std::vector<float> vertices_loaded;
+	load_vertices(vertices_loaded, "hello.world");
+	std::vector<float> vertices = vertices_loaded;
+	CPU_vertex_transformation(vertices_loaded, vertices, vertices_loaded.size() / 7.0f, rx, ry);
+
 	hwnd = CreateWindowExW(0, L"class", L"hello?", WS_OVERLAPPEDWINDOW, 0, 0, width, height, 0, 0, h_instance, 0);
 	ShowWindow(hwnd, n_cmd_show);
+	attach_console();
 
-	std::vector<float> vertices = load_vertices("hello.world");
 	std::vector<float> non_colored_vertices = load_indices(vertices);
-
-	std::fill(screen.begin(), screen.end(), 0xFF00FF);
 
 	ComPtr<ID3D11Device> device;
 	ComPtr<ID3D11DeviceContext> ctx;
@@ -395,6 +401,11 @@ int WinMain(HINSTANCE h_instance, HINSTANCE p_instance, LPSTR cmdln, int n_cmd_s
 	UINT clear_val_uint[4] = { 0, 0, 0, 0 };
 	ID3D11UnorderedAccessView* null_uav[] = { nullptr };
 
+	ComPtr<ID3D11Query> frame_query;
+	D3D11_QUERY_DESC query_desc = {};
+	query_desc.Query = D3D11_QUERY_EVENT;
+	device->CreateQuery(&query_desc, &frame_query);
+
 	ComPtr<IDXGISwapChain> swapchain;
 	ComPtr<IDXGIDevice> dxgi_device;
 	ComPtr<IDXGIAdapter> adapter;
@@ -445,7 +456,7 @@ int WinMain(HINSTANCE h_instance, HINSTANCE p_instance, LPSTR cmdln, int n_cmd_s
 	}
 	hr_code++;
 
-	std::vector<unsigned int> culling_avoidance = set_occlusion_viability(vertices, width, height, -45.0f);
+	std::vector<unsigned int> culling_avoidance = set_occlusion_viability(vertices, width, height, rx, ry);
 	ComPtr<ID3D11Buffer> cull_buffer;
 	D3D11_BUFFER_DESC cull_buffer_desc = {};
 	cull_buffer_desc.ByteWidth = sizeof(unsigned int) * culling_avoidance.size();
