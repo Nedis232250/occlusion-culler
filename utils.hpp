@@ -5,12 +5,11 @@
 #include <vector>
 #include <fstream>
 
-std::vector<float> load_vertices(const char* path) {
-    std::vector<float> result;
+void load_vertices(std::vector<float>& result, const char* path) {
     std::ifstream file(path);
     if (!file.is_open()) {
         std::cout << "failed to open file\n";
-        return result;
+        return;
     }
 
     float x, y, z, r, g, b, a;
@@ -25,7 +24,6 @@ std::vector<float> load_vertices(const char* path) {
         result.push_back(a);
         file >> comma; // consume trailing comma if present, harmless if not
     }
-    return result;
 }
 
 std::vector<float> load_indices(std::vector<float> input) {
@@ -54,152 +52,64 @@ float radians(float degrees) {
     return PI * (degrees / 180.0f);
 }
 
-std::vector<unsigned int> set_occlusion_viability(std::vector<float> vertices, unsigned int width, unsigned int height, float rx) {
+std::vector<unsigned int> set_occlusion_viability(std::vector<float> vertices, unsigned int width, unsigned int height, float rx, float ry) {
     std::vector<unsigned int> result;
 
     unsigned int offset;
     float maxx, minx, maxy, miny, aabb_width, aabb_height;
-    unsigned int x = 0;
 
     for (unsigned int i = 0; i < vertices.size() / 21; i++) {
         offset = i * 21;
 
-        maxx = max(vertices[offset] / (10 * (vertices[offset + 2] + 10.0f)), max(vertices[offset + 7] / (10 * (vertices[offset + 9] + 10.0f)), vertices[offset + 14] / (10 * (vertices[offset + 16] + 10.0f))));
-        minx = min(vertices[offset] / (10 * (vertices[offset + 2] + 10.0f)), min(vertices[offset + 7] / (10 * (vertices[offset + 9] + 10.0f)), vertices[offset + 14] / (10 * (vertices[offset + 16] + 10.0f))));
-        maxy = max(vertices[offset + 1] / (10 * (vertices[offset + 2] + 10.0f)), max(vertices[offset + 8] / (10 * (vertices[offset + 9] + 10.0f)), vertices[offset + 15] / (10 * (vertices[offset + 16] + 10.0f))));
-        miny = min(vertices[offset + 1] / (10 * (vertices[offset + 2] + 10.0f)), min(vertices[offset + 8] / (10 * (vertices[offset + 9] + 10.0f)), vertices[offset + 15] / (10 * (vertices[offset + 16] + 10.0f))));
+        maxx = max(vertices[offset], max(vertices[offset + 7], vertices[offset + 14]));
+        minx = min(vertices[offset], min(vertices[offset + 7], vertices[offset + 14]));
+        maxy = max(vertices[offset + 1], max(vertices[offset + 8], vertices[offset + 15]));
+        miny = min(vertices[offset + 1], min(vertices[offset + 8], vertices[offset + 15]));
+
+        if (minx > 1.0f || maxx < -1.0f || miny > 1.0f || maxy < -1.0f) {
+            result.push_back(2);
+            continue;
+        }
 
         aabb_width = width * (maxx - minx);
         aabb_height = height * (maxy - miny);
 
-        if (i == 0) {
-            std::cout << aabb_width << "\n";
-            std::cout << cos(radians(rx)) << "\n";
-        }
-
-        if (aabb_height * cos(radians(rx)) < 8.0f || aabb_width < 8.0f) {
+        if (aabb_height * cos(radians(rx)) < 16.0f || aabb_width < 16.0f || aabb_height < 16.0f || aabb_width * cos(radians(ry)) < 16.0f) {
             result.push_back(0);
-            x++;
             continue;
         }
 
         result.push_back(1);
     }
 
-    std::cout << x << "\n";
-
     return result;
 }
 
-std::vector<float> load_terrain_triangulation(unsigned int nx, unsigned int nz) {
-    std::vector<float> vertices;
-    for (float z = 1.0f; z < 16.0f; z += 16.0f / nz) {
-        for (float x = -1.0f; x < 1.0f; x += 2.0f / nx) {
-            float centerx = x + 1.0f / nx;
-            float centerz = z + 8.0f / nz;
-            vertices.push_back(centerx);
-            vertices.push_back(0);
-            vertices.push_back(10 * centerz - 10);
-            vertices.push_back(1);
-            vertices.push_back(1);
-            vertices.push_back(1);
-            vertices.push_back(1);
+void CPU_vertex_transformation(std::vector<float>& ogp, std::vector<float>& np, unsigned int vertex_count, float thetax, float thetay) {
+    for (unsigned int i = 0; i < vertex_count * 7; i += 7) {
+        float x = ogp[i];
+        float y = ogp[i + 1];
+        float z = 0.1f * (ogp[i + 2] + 10);
 
-            vertices.push_back(x);
-            vertices.push_back(0);
-            vertices.push_back(10 * z - 10);
-            vertices.push_back(1);
-            vertices.push_back(1);
-            vertices.push_back(1);
-            vertices.push_back(1);
+        float rx = radians(thetax);
+        float ry = radians(thetay);
 
-            vertices.push_back(x + 2.0f / nx);
-            vertices.push_back(0);
-            vertices.push_back(10 * z - 10);
-            vertices.push_back(1);
-            vertices.push_back(1);
-            vertices.push_back(1);
-            vertices.push_back(1);
+        float y1 = y * cos(rx) - z * sin(rx);
+        float z1 = y * sin(rx) + z * cos(rx);
+        float x1 = x;
 
+        float xr = x1 * cos(ry) + z1 * sin(ry);
+        float yr = y1;
+        float zr = -x1 * sin(ry) + z1 * cos(ry);
 
+        zr = max(0.25, zr);
 
-            vertices.push_back(centerx);
-            vertices.push_back(0);
-            vertices.push_back(10 * centerz - 10);
-            vertices.push_back(1);
-            vertices.push_back(1);
-            vertices.push_back(1);
-            vertices.push_back(1);
+        float invz = 1.0f / zr;
+        float xp = (xr * invz);
+        float yp = (yr * invz);
 
-            vertices.push_back(x);
-            vertices.push_back(0);
-            vertices.push_back(10 * (z + 16.0f / nz) - 10);
-            vertices.push_back(1);
-            vertices.push_back(1);
-            vertices.push_back(1);
-            vertices.push_back(1);
-
-            vertices.push_back(x + 2.0f / nx);
-            vertices.push_back(0);
-            vertices.push_back(10 * (z + 16.0f / nz) - 10);
-            vertices.push_back(1);
-            vertices.push_back(1);
-            vertices.push_back(1);
-            vertices.push_back(1);
-
-
-
-            vertices.push_back(centerx);
-            vertices.push_back(0);
-            vertices.push_back(10 * centerz - 10);
-            vertices.push_back(1);
-            vertices.push_back(1);
-            vertices.push_back(1);
-            vertices.push_back(1);
-
-            vertices.push_back(x);
-            vertices.push_back(0);
-            vertices.push_back(10 * z - 10);
-            vertices.push_back(1);
-            vertices.push_back(1);
-            vertices.push_back(1);
-            vertices.push_back(1);
-
-            vertices.push_back(x);
-            vertices.push_back(0);
-            vertices.push_back(10 * (z + 16.0f / nz) - 10);
-            vertices.push_back(1);
-            vertices.push_back(1);
-            vertices.push_back(1);
-            vertices.push_back(1);
-
-
-
-            vertices.push_back(centerx);
-            vertices.push_back(0);
-            vertices.push_back(10 * centerz - 10);
-            vertices.push_back(1);
-            vertices.push_back(1);
-            vertices.push_back(1);
-            vertices.push_back(1);
-
-            vertices.push_back(x + 2.0f / nx);
-            vertices.push_back(0);
-            vertices.push_back(10 * z - 10);
-            vertices.push_back(1);
-            vertices.push_back(1);
-            vertices.push_back(1);
-            vertices.push_back(1);
-
-            vertices.push_back(x + 2.0f / nx);
-            vertices.push_back(0);
-            vertices.push_back(10 * (z + 16.0f / nz) - 10);
-            vertices.push_back(1);
-            vertices.push_back(1);
-            vertices.push_back(1);
-            vertices.push_back(1);
-        }
+        np[i] = xp;
+        np[i + 1] = yp;
+        np[i + 2] = zr;
     }
-
-    return vertices;
 }
